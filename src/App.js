@@ -22,14 +22,15 @@ const App = () => (
   <DynamicContextProvider
     theme="auto"
     settings={{
-      environmentId: "2762a57b-faa4-41ce-9f16-abff9300e2c9",
+      environmentId: "5157b9cd-892c-4ff0-9023-36e165a75ed6",
       walletConnectors: [EthereumWalletConnectors],
     }}
   >
     <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}> 
         <DynamicWagmiConnector>
-          <Main />
+          <Main>
+          </Main>
         </DynamicWagmiConnector>
       </QueryClientProvider>
     </WagmiProvider>
