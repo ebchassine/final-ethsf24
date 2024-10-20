@@ -3,6 +3,10 @@ import { useDynamicContext, useIsLoggedIn, useUserWallets } from "@dynamic-labs/
 import { isEthereumWallet } from '@dynamic-labs/ethereum'
 
 import './Methods.css';
+import { APP_CONFIG } from "./AppConfig"
+import {weaveReadFiles, weaveReadWallets, weaveStoreWallet} from "./Backend";
+import LOCAL_STORAGE from "./LocalStorage";
+import { enc } from "crypto-js"
 
 export default function DynamicMethods({ isDarkMode }) {
   const isLoggedIn = useIsLoggedIn();
@@ -11,7 +15,27 @@ export default function DynamicMethods({ isDarkMode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState('');
 
-  
+  async function readWallets() {
+    console.log("Loading wallets")
+    const wallets = await weaveReadWallets(APP_CONFIG.organization);
+    console.log("Loaded wallets")
+    console.log(wallets)
+  }
+
+  async function readFiles() {
+    console.log("Loading files")
+    const files = await weaveReadFiles(APP_CONFIG.organization);
+    console.log("Loaded files");
+    //console.log(files)
+    const result = [];
+    (files.data || []).forEach((f) => {
+        if (f.recipient === primaryWallet) {
+            result.push(f);
+        }
+    })
+    console.log(result);
+  }
+
     const safeStringify = (obj) => {
       const seen = new WeakSet();
       return JSON.stringify(obj, (key, value) => {
@@ -28,6 +52,8 @@ export default function DynamicMethods({ isDarkMode }) {
 
   useEffect(() => {
     if (sdkHasLoaded && isLoggedIn && primaryWallet) {
+      readFiles();
+      readWallets();
       setIsLoading(false);
     }
   }, [sdkHasLoaded, isLoggedIn, primaryWallet]);
@@ -38,6 +64,7 @@ export default function DynamicMethods({ isDarkMode }) {
 
   function showUser() {
     setResult(safeStringify(user));
+    readFiles();
   }
 
   function showUserWallets() {
@@ -60,12 +87,23 @@ export default function DynamicMethods({ isDarkMode }) {
     }
 
     async function signMessage() {
+        await readWallets();
+        await readFiles();
+
         if(!primaryWallet || !isEthereumWallet(primaryWallet)) return;
 
-        const signature = await primaryWallet.signMessage("Hello World");
+        const wallet = primaryWallet.address;
+        const state = LOCAL_STORAGE.loadState();
+        const wevKey = state.backend?.pub;
+        const toSign = `Please sign this message to confirm you own this wallet\nThere will be no blockchain transaction or any gas fees.\n\nWallet: ${wallet}\nKey: ${wevKey}`;
+        const signature = await primaryWallet.signMessage(toSign);
         setResult(signature);
-    }
+        console.log(signature)
 
+        LOCAL_STORAGE.saveState({...state, signature, wallet})
+
+        weaveStoreWallet(APP_CONFIG.organization, wallet, signature);
+    }
 
 
    return (
@@ -81,7 +119,7 @@ export default function DynamicMethods({ isDarkMode }) {
       <>
         <button className="btn btn-primary" onClick={fetchPublicClient}>Fetch Public Client</button>
         <button className="btn btn-primary" onClick={fetchWalletClient}>Fetch Wallet Client</button>
-        <button className="btn btn-primary" onClick={signMessage}>Sign 'Hello World' on Ethereum</button>    
+        <button className="btn btn-primary" onClick={signMessage}>Prove Wallet Ownership</button>
       </>
     }
 
